@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hydroponics Control</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .sensor-value { font-weight: bold; }
+        .tab { overflow: hidden; border: 1px solid #ccc; background-color: #f1f1f1; }
+        .tab button { 
+            background-color: inherit; 
+            float: left; 
+            border: none; 
+            outline: none; 
+            cursor: pointer; 
+            padding: 10px 16px; 
+            transition: 0.3s; 
+        }
+        .tab button:hover { background-color: #ddd; }
+        .tab button.active { background-color: #ccc; }
+        .tabcontent { 
+            display: none; 
+            padding: 6px 12px; 
+            border: 1px solid #ccc; 
+            border-top: none; 
+        }
+        .user-form { 
+            max-width: 400px; 
+            margin: 20px 0; 
+        }
+        .user-form input { 
+            margin: 5px 0; 
+            width: 95%; 
+            padding: 5px;
+        }
+        .user-form button {
+            margin-top: 10px;
+            padding: 5px 10px;
+        }
+        .sensor-container {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #eee;
+        }
+        /* Growth Profile Styles */
+        /* Dashboard layout */
+        .dashboard-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .dashboard-column {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        /* Active cycle styling */
+        .active-cycle-container {
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #e8f5e9;
+            border: 1px solid #81c784;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .sensor-summary {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #c8e6c9;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .sensor-item {
+            flex: 1;
+            padding: 5px 10px;
+        }
+        .sensor-label {
+            font-weight: bold;
+            color: #2e7d32;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .active-cycle-container h2 {
+            color: #2e7d32;
+            margin-top: 0;
+            border-bottom: 2px solid #81c784;
+            padding-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-icons {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .status-icon {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .status-icon svg {
+            width: 24px;
+            height: 24px;
+            margin-right: 5px;
+        }
+        .wifi-connected path {
+            fill: #4caf50;
+        }
+        .wifi-disconnected path {
+            fill: #f44336;
+        }
+        .mqtt-connected path {
+            fill: #4caf50;
+        }
+        .mqtt-disconnected path {
+            fill: #f44336;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .quick-control {
+            margin-top: 15px;
+            text-align: center;
+        }
+        .manage-cycle {
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .manage-cycle:hover {
+            background-color: #388e3c;
+        }
+        
+        .cycle-container {
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .progress-container {
+            margin: 20px 0;
+            width: 100%;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #eee;
+            border-radius: 5px;
+            overflow: hidden;
+            display: flex;
+        }
+        .seedling-progress {
+            height: 100%;
+            background-color: #8bc34a;
+            width: 0%;
+        }
+        .growing-progress {
+            height: 100%;
+            background-color: #4caf50;
+            width: 0%;
+        }
+        .harvesting-progress {
+            height: 100%;
+            background-color: #ff9800;
+            width: 0%;
+        }
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            color: #666;
+        }
+        .active-profile {
+            margin-top: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f5f5f5;
+        }
+        .profile-selection {
+            margin-bottom: 20px;
+        }
+        .profile-selection select {
+            padding: 5px 10px;
+            margin-right: 10px;
+        }
+        .start-cycle {
+            margin-top: 20px;
+        }
+        #current-profile-info {
+            margin-bottom: 15px;
+        }
+        
+        /* Controls styling */
+        .controls-container {
+            display: flex;
+            justify-content: space-between;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #e8f5e9;
+            border-radius: 6px;
+        }
+        .control-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f1f8e9;
+            margin: 0 5px;
+        }
+        .control-label {
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 5px;
+        }
+        .control-button {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .control-button:hover {
+            background-color: #388e3c;
+        }
+        
+        /* Pump and Light Icons */
+        .control-icon {
+            position: relative;
+            width: 50px;
+            height: 50px;
+            margin-bottom: 10px;
+        }
+        .water-drop {
+            position: absolute;
+            top: 19px;
+            left: 18px;
+            width: 20px;
+            height: 20px;
+            background-color: #2196f3;
+            border-radius: 0 50% 50% 50%;
+            transform: rotate(45deg);
+            z-index: 1; 
+        }
+        .spin-animation {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50px;
+            height: 50px;
+            border: 3px dashed #03a9f4;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .pump-active .spin-animation {
+            opacity: 1;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .light-bulb {
+            position: absolute;
+            top: 5px;
+            left: 15px;
+            width: 20px;
+            height: 30px;
+            background-color: #aaa;
+            border-radius: 10px 10px 50% 50%;
+            box-shadow: 0 0 0 0 #ffeb3b;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        .light-active .light-bulb {
+            background-color: #ffeb3b;
+            box-shadow: 0 0 15px 5px rgba(255, 235, 59, 0.7);
+        }
+        
+        /* Schedule info styling */
+        .schedule-info {
+            margin-top: 5px;
+            text-align: center;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .timer {
+            font-weight: bold;
+            font-family: monospace;
+            font-size: 1.1em;
+            color: #2e7d32;
+        }
+        
+        /* MQTT toggle styling */
+        .mqtt-toggle {
+            margin: 10px 0;
+        }
+        .mqtt-toggle input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        .mqtt-toggle label {
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Hydroponics Control System</h1>
+    
+    <div class="tab">
+        <button class="tablinks active" onclick="openTab(event, 'dashboard')">Dashboard</button>
+        <button class="tablinks" onclick="openTab(event, 'config')">Configuration</button>
+        <button class="tablinks" onclick="openTab(event, 'calibration')">Calibration</button>
+        <button class="tablinks" onclick="openTab(event, 'growth-profile')">Growth Profile</button>
+        <button class="tablinks" onclick="openTab(event, 'user')">User Management</button>
+    </div>
+
+    <div id="dashboard" class="tabcontent" style="display: block;">
+        <div class="active-cycle-container">
+            <h2>
+                Hydroponics Growth Dashboard
+                <div class="status-icons">
+                    <div class="status-icon tooltip" id="wifi-icon">
+                        <svg viewBox="0 0 24 24" id="wifi-svg">
+                            <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+                        </svg>
+                        <span class="tooltiptext" id="wifi-tooltip">WiFi Signal: -- dBm</span>
+                    </div>
+                    <div class="status-icon" id="mqtt-icon">
+                        <svg viewBox="0 0 24 24" id="mqtt-svg">
+                            <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+                        </svg>
+                    </div>
+                </div>
+            </h2>
+            
+            <div class="sensor-summary">
+                <div class="sensor-item">
+                    <span class="sensor-label">Water Level:</span>
+                    <span id="liquid-level" class="sensor-value">--</span>%
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">pH Value:</span>
+                    <span id="ph-value" class="sensor-value">--</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">TDS Value:</span>
+                    <span id="tds-value" class="sensor-value">--</span> ppm
+                </div>
+            </div>            
+            
+            <div class="controls-container">
+                <div class="control-item">
+                    <div class="control-icon pump-icon" id="pump-icon">
+                        <div class="water-drop"></div>
+                        <div class="spin-animation"></div>
+                    </div>
+                    <span class="control-label">Pump:</span>
+                    <span id="pump-status" class="sensor-value">--</span>
+                    <div class="schedule-info">
+                        <span id="watering-status">--</span><br>
+                        <span id="watering-timer" class="timer">--:--</span> until next change
+                    </div>
+                    <button onclick="toggleRelay('pump')" id="pump-toggle" class="control-button">Toggle Pump</button>
+                </div>
+                <div class="control-item">
+                    <div class="control-icon light-icon" id="light-icon">
+                        <div class="light-bulb"></div>
+                    </div>
+                    <span class="control-label">Lights:</span>
+                    <span id="lights-status" class="sensor-value">--</span>
+                    <div class="schedule-info">
+                        <span id="light-status">--</span><br>
+                        <span id="light-timer" class="timer">--:--</span> until next change
+                    </div>
+                    <button onclick="toggleRelay('lights')" id="lights-toggle" class="control-button">Toggle Lights</button>
+                </div>
+            </div>
+            
+            <div id="current-profile-info">
+                <p>Current Profile: <span id="dashboard-profile-name">None</span></p>
+                <p>Current Stage: <span id="dashboard-stage">None</span></p>
+                <p>Start Date: <span id="dashboard-start-date">None</span></p>
+                <p>Days Remaining: <span id="dashboard-days-remaining">0</span></p>
+            </div>
+            
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="seedling-progress" id="dashboard-seedling-progress"></div>
+                    <div class="growing-progress" id="dashboard-growing-progress"></div>
+                    <div class="harvesting-progress" id="dashboard-harvesting-progress"></div>
+                </div>
+                <div class="progress-labels">
+                    <span>Seedling</span>
+                    <span>Growing</span>
+                    <span>Harvesting</span>
+                </div>
+            </div>
+            
+            <div class="quick-control">
+                <button onclick="openGrowthTab()" class="manage-cycle">Manage Growth Cycle</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="config" class="tabcontent">
+        <h2>System Configuration</h2>
+        <div id="config-form">
+            <!-- Configuration form will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <div id="calibration" class="tabcontent">
+        <h2>Sensor Calibration</h2>
+        <div id="calibration-form">
+            <!-- Calibration form will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <div id="growth-profile" class="tabcontent">
+        <h2>Growth Profiles</h2>
+        <div id="profile-container">
+            <div class="profile-selection">
+                <label for="profile-select">Select Profile:</label>
+                <select id="profile-select" onchange="loadProfileDetails()">
+                    <option value="tomatoes">Tomatoes</option>
+                    <option value="peppers">Peppers</option>
+                    <option value="lettuce">Lettuce</option>
+                    <option value="custom">Custom Profile</option>
+                </select>
+                <button onclick="createNewProfile()">New Profile</button>
+            </div>
+            
+            <div id="profile-details" class="user-form">
+                <h3>Profile Settings</h3>
+                <label for="profile-name">Profile Name:</label>
+                <input type="text" id="profile-name">
+                
+                <div class="cycle-container">
+                    <h4>Seedling Stage</h4>
+                    <label for="seedling-duration">Duration (days):</label>
+                    <input type="number" id="seedling-duration" value="14">
+                    
+                    <label for="seedling-water-duration">Watering Duration (minutes):</label>
+                    <input type="number" id="seedling-water-duration" value="5">
+                    
+                    <label for="seedling-water-interval">Watering Interval (minutes):</label>
+                    <input type="number" id="seedling-water-interval" value="60">
+                    
+                    <label for="seedling-light-hours">Light Hours Per Day:</label>
+                    <input type="number" id="seedling-light-hours" value="8">
+                    
+                    <label for="seedling-light-start">Light Start Hour (24h format):</label>
+                    <input type="number" id="seedling-light-start" value="6" min="0" max="23">
+                    
+                    <div class="ph-range">
+                        <h5>Optimal pH Range</h5>
+                        <label for="seedling-ph-min">pH Minimum:</label>
+                        <input type="number" id="seedling-ph-min" value="5.5" step="0.1" min="0" max="14">
+                        
+                        <label for="seedling-ph-max">pH Maximum:</label>
+                        <input type="number" id="seedling-ph-max" value="6.5" step="0.1" min="0" max="14">
+                    </div>
+                </div>
+                
+                <div class="cycle-container">
+                    <h4>Growing Stage</h4>
+                    <label for="growing-duration">Duration (days):</label>
+                    <input type="number" id="growing-duration" value="30">
+                    
+                    <label for="growing-water-duration">Watering Duration (minutes):</label>
+                    <input type="number" id="growing-water-duration" value="5">
+                    
+                    <label for="growing-water-interval">Watering Interval (minutes):</label>
+                    <input type="number" id="growing-water-interval" value="30">
+                    
+                    <label for="growing-light-hours">Light Hours Per Day:</label>
+                    <input type="number" id="growing-light-hours" value="12">
+                    
+                    <label for="growing-light-start">Light Start Hour (24h format):</label>
+                    <input type="number" id="growing-light-start" value="6" min="0" max="23">
+                    
+                    <div class="ph-range">
+                        <h5>Optimal pH Range</h5>
+                        <label for="growing-ph-min">pH Minimum:</label>
+                        <input type="number" id="growing-ph-min" value="5.8" step="0.1" min="0" max="14">
+                        
+                        <label for="growing-ph-max">pH Maximum:</label>
+                        <input type="number" id="growing-ph-max" value="6.2" step="0.1" min="0" max="14">
+                    </div>
+                </div>
+                
+                <div class="cycle-container">
+                    <h4>Harvesting Stage</h4>
+                    <label for="harvesting-duration">Duration (days):</label>
+                    <input type="number" id="harvesting-duration" value="14">
+                    
+                    <label for="harvesting-water-duration">Watering Duration (minutes):</label>
+                    <input type="number" id="harvesting-water-duration" value="5">
+                    
+                    <label for="harvesting-water-interval">Watering Interval (minutes):</label>
+                    <input type="number" id="harvesting-water-interval" value="45">
+                    
+                    <label for="harvesting-light-hours">Light Hours Per Day:</label>
+                    <input type="number" id="harvesting-light-hours" value="10">
+                    
+                    <label for="harvesting-light-start">Light Start Hour (24h format):</label>
+                    <input type="number" id="harvesting-light-start" value="6" min="0" max="23">
+                    
+                    <div class="ph-range">
+                        <h5>Optimal pH Range</h5>
+                        <label for="harvesting-ph-min">pH Minimum:</label>
+                        <input type="number" id="harvesting-ph-min" value="6.0" step="0.1" min="0" max="14">
+                        
+                        <label for="harvesting-ph-max">pH Maximum:</label>
+                        <input type="number" id="harvesting-ph-max" value="6.5" step="0.1" min="0" max="14">
+                    </div>
+                </div>
+                
+                <button onclick="saveProfile()">Save Profile</button>
+            </div>
+            
+            <div class="active-profile">
+                <h3>Active Growth Cycle</h3>
+                <div id="current-profile-info">
+                    <p>Current Profile: <span id="current-profile-name">None</span></p>
+                    <p>Current Stage: <span id="current-stage">None</span></p>
+                    <p>Start Date: <span id="start-date">None</span></p>
+                    <p>Days Remaining: <span id="days-remaining">0</span></p>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="seedling-progress" id="seedling-progress"></div>
+                        <div class="growing-progress" id="growing-progress"></div>
+                        <div class="harvesting-progress" id="harvesting-progress"></div>
+                    </div>
+                    <div class="progress-labels">
+                        <span>Seedling</span>
+                        <span>Growing</span>
+                        <span>Harvesting</span>
+                    </div>
+                </div>
+                
+                <div class="start-cycle">
+                    <h4>Start New Growth Cycle</h4>
+                    <label for="cycle-start-date">Start Date:</label>
+                    <input type="date" id="cycle-start-date">
+                    <button onclick="startGrowthCycle()">Start Cycle</button>
+                    <button onclick="stopGrowthCycle()">Stop Active Cycle</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="user" class="tabcontent">
+        <h2>User Management</h2>
+        <div class="user-form">
+            <h3>Change Admin Credentials</h3>
+            <label for="username">New Username:</label>
+            <input type="text" id="username" placeholder="admin">
+            <label for="password">New Password:</label>
+            <input type="password" id="password" placeholder="admin">
+            <button onclick="updateCredentials()">Update Credentials</button>
+        </div>
+    </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+            
+            // Auto-load forms when tabs are selected
+            if (tabName === 'config') {
+                loadConfig();
+            } else if (tabName === 'calibration') {
+                loadCalibration();
+            }
+        }
+
+        function updateCredentials() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            fetch('/user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    alert('Credentials updated successfully!');
+                } else {
+                    alert('Error updating credentials');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating credentials');
+            });
+        }
+
+        // Configuration form handling
+        function loadConfig() {
+            fetch('/config')
+                .then(response => response.json())
+                .then(data => {
+                    const formHtml = `
+                        <div class="user-form">
+                            <h3>System Configuration</h3>
+                            <label>Device ID:</label>
+                            <input type="text" id="device_id" value="${data.device_id}">
+
+                            <label>NTP Server:</label>
+                            <input type="text" id="ntp_server" value="${data.ntp_server}">
+
+                            <div class="mqtt-toggle">
+                                <label>
+                                    <input type="checkbox" id="mqtt_enabled" ${data.mqtt_enabled ? 'checked' : ''}>
+                                    Enable MQTT
+                                </label>
+                            </div>
+                            
+                            <div id="mqtt_config_section" ${data.mqtt_enabled ? '' : 'style="display:none"'}>
+                                <label>MQTT Server:</label>
+                                <input type="text" id="mqtt_server" value="${data.mqtt_server}">
+                                <label>MQTT Port:</label>
+                                <input type="number" id="mqtt_port" value="${data.mqtt_port}">
+                                <label>MQTT User:</label>
+                                <input type="text" id="mqtt_user" value="${data.mqtt_user}">
+                                <label>MQTT Password:</label>
+                                <input type="password" id="mqtt_password" value="${data.mqtt_password}">
+                            </div>
+                            <button onclick="saveConfig()">Save Configuration</button>
+                        </div>
+                    `;
+                    
+                    document.getElementById('config-form').innerHTML = formHtml;
+                    
+                    // Set up MQTT toggle listener separately (not inside template literal)
+                    setTimeout(function() {
+                        const mqttEnabledCheckbox = document.getElementById('mqtt_enabled');
+                        const mqttConfigSection = document.getElementById('mqtt_config_section');
+                        
+                        if (mqttEnabledCheckbox && mqttConfigSection) {
+                            // Set initial visibility (already done with inline style)
+                            
+                            // Add change event listener
+                            mqttEnabledCheckbox.addEventListener('change', function() {
+                                mqttConfigSection.style.display = this.checked ? 'block' : 'none';
+                            });
+                        }
+                    }, 100); // Small delay to ensure elements are loaded
+                });
+        }
+
+        function saveConfig() {
+            const config = {
+                device_id: document.getElementById('device_id').value,
+                mqtt_enabled: document.getElementById('mqtt_enabled').checked,
+                mqtt_server: document.getElementById('mqtt_server').value,
+                mqtt_port: document.getElementById('mqtt_port').value,
+                mqtt_user: document.getElementById('mqtt_user').value,
+                mqtt_password: document.getElementById('mqtt_password').value,
+                ntp_server: document.getElementById('ntp_server').value
+            };
+
+            fetch('/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    alert('Configuration saved successfully!');
+                }
+            });
+        }
+
+        // Calibration functions
+        function loadCalibration() {
+            // Fetch calibration settings
+            fetch('/calibration')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('calibration-form').innerHTML = `
+                        <div class="user-form">
+                            <h3>Liquid Level Calibration</h3>
+                            <p>Current Raw Value: <span id="liquid-raw-value">--</span></p>
+                            <p>Current Level: <span id="liquid-level-value">--%</span></p>
+                            
+                            <div class="calibration-inputs">
+                                <label>Min Level (Empty):</label>
+                                <input type="number" id="cal_dry" value="${data.cal_dry || 0}">
+                                <button onclick="calibrateLiquid('dry')">Set to Current</button>
+                                
+                                <label>Critical Level:</label>
+                                <input type="number" id="cal_critical" value="${data.cal_critical || 0}">
+                                <button onclick="calibrateLiquid('critical')">Set to Current</button>
+                                
+                                <label>Half Full Level:</label>
+                                <input type="number" id="cal_half" value="${data.cal_half || 0}">
+                                <button onclick="calibrateLiquid('half')">Set to Current</button>
+                                
+                                <label>Max Level (Full):</label>
+                                <input type="number" id="cal_full" value="${data.cal_full || 0}">
+                                <button onclick="calibrateLiquid('full')">Set to Current</button>
+                                
+                                <button onclick="saveCalibration('liquid')">Save Liquid Calibration</button>
+                            </div>
+                            
+                            <h3>pH Calibration</h3>
+                            <p>Current pH Value: <span id="ph-cal-value">--</span></p>
+                            <p>Current ADC Value: <span id="ph-adc-value">--</span></p>
+                            
+                            <div class="calibration-inputs">
+                                <label>pH 4 ADC Value:</label>
+                                <input type="number" id="ph4_adc" value="${data.ph4_adc || 0}" step="1">
+                                <button onclick="calibratePH('ph4')">Set to Current</button>
+                                
+                                <label>pH 7 ADC Value:</label>
+                                <input type="number" id="ph7_adc" value="${data.ph7_adc || 0}" step="1">
+                                <button onclick="calibratePH('ph7')">Set to Current</button>
+                                
+                                <label>pH 10 ADC Value:</label>
+                                <input type="number" id="ph10_adc" value="${data.ph10_adc || 0}" step="1">
+                                <button onclick="calibratePH('ph10')">Set to Current</button>
+                                
+                                <button onclick="saveCalibration('ph')">Save pH Calibration</button>
+                            </div>
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    console.error('Error loading calibration data:', error);
+                    document.getElementById('calibration-form').innerHTML = `
+                        <div class="user-form">
+                            <p>Error loading calibration data. Please try again.</p>
+                        </div>
+                    `;
+                });
+        }
+
+        function calibrateLiquid(type) {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById(`cal_${type}`).value = data.liquid_value;
+                });
+        }
+        
+        function calibratePH(type) {
+            // We'll capture the current ADC value for the corresponding pH
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Use the ADC value for pH calibration
+                    const adcValue = data.ph_adc;
+                    if (type === 'ph4') {
+                        document.getElementById('ph4_adc').value = adcValue;
+                    } else if (type === 'ph7') {
+                        document.getElementById('ph7_adc').value = adcValue;
+                    } else if (type === 'ph10') {
+                        document.getElementById('ph10_adc').value = adcValue;
+                    }
+                });
+        }
+        
+        function saveCalibration(type) {
+            let calibrationData = {};
+            
+            if (type === 'liquid') {
+                calibrationData = {
+                    cal_dry: parseInt(document.getElementById('cal_dry').value),
+                    cal_critical: parseInt(document.getElementById('cal_critical').value),
+                    cal_half: parseInt(document.getElementById('cal_half').value),
+                    cal_full: parseInt(document.getElementById('cal_full').value)
+                };
+            } else if (type === 'ph') {
+                calibrationData = {
+                    ph4_adc: parseFloat(document.getElementById('ph4_adc').value),
+                    ph7_adc: parseFloat(document.getElementById('ph7_adc').value),
+                    ph10_adc: parseFloat(document.getElementById('ph10_adc').value)
+                };
+            }
+            
+            fetch('/calibration', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(calibrationData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    alert(`${type.charAt(0).toUpperCase() + type.slice(1)} calibration saved successfully!`);
+                } else {
+                    alert('Error saving calibration data');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving calibration data');
+            });
+        }
+
+        // Constants for thresholds
+        const LIQUID_ALERT_PERCENT = 20;
+        const PH_MIN = 5.5;
+        const PH_MAX = 7.5;
+
+        // Sensor data updates
+        function updateSensorData() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Get parsed values
+                    const liquidLevel = data.liquid_level === "N/A" ? "--" : data.liquid_level;
+                    const liquidRaw = data.liquid_value === "N/A" ? "--" : data.liquid_value;
+                    const phValue = data.ph_value === "N/A" ? NaN : parseFloat(data.ph_value);
+                    const phAdc = data.ph_adc === "N/A" ? NaN : parseInt(data.ph_adc);
+                    const tdsValue = data.tds_value === "N/A" ? NaN : parseFloat(data.tds_value);
+                    
+                    const phFormatted = isNaN(phValue) ? "--" : phValue.toFixed(2);
+                    const tdsFormatted = isNaN(tdsValue) ? "--" : tdsValue.toFixed(0);
+                    
+                    // Update main dashboard
+                    document.getElementById('liquid-level').textContent = liquidLevel;
+                    document.getElementById('ph-value').textContent = phFormatted;
+                    document.getElementById('tds-value').textContent = tdsFormatted;
+                    
+                    // These elements don't exist in the HTML, so we don't need to update them
+                    // Left for backward compatibility
+                    try {
+                        const dashLiquidLevel = document.getElementById('dashboard-liquid-level');
+                        const dashPhValue = document.getElementById('dashboard-ph-value');
+                        const dashTdsValue = document.getElementById('dashboard-tds-value');
+                        
+                        if (dashLiquidLevel) dashLiquidLevel.textContent = liquidLevel;
+                        if (dashPhValue) dashPhValue.textContent = phFormatted;
+                        if (dashTdsValue) dashTdsValue.textContent = tdsFormatted;
+                    } catch (e) {
+                        // Silently ignore if elements don't exist
+                    }
+                    
+                    // Update calibration page if it exists
+                    const liquidRawValue = document.getElementById('liquid-raw-value');
+                    const liquidLevelValue = document.getElementById('liquid-level-value');
+                    const phCalValue = document.getElementById('ph-cal-value');
+                    const phAdcValue = document.getElementById('ph-adc-value');
+                    
+                    if (liquidRawValue) liquidRawValue.textContent = liquidRaw;
+                    if (liquidLevelValue) liquidLevelValue.textContent = liquidLevel + '%';
+                    if (phCalValue) phCalValue.textContent = phFormatted;
+                    if (phAdcValue) phAdcValue.textContent = phAdc;
+                    
+                    // Ensure boolean values for relay states
+                    const pumpState = typeof data.pump_state === 'string' ? 
+                        data.pump_state === 'true' : Boolean(data.pump_state);
+                    const lightsState = typeof data.lights_state === 'string' ? 
+                        data.lights_state === 'true' : Boolean(data.lights_state);
+                    
+                    // Update relay status text
+                    document.getElementById('pump-status').textContent = pumpState ? 'ON' : 'OFF';
+                    document.getElementById('lights-status').textContent = lightsState ? 'ON' : 'OFF';
+                    
+                    // Update pump and light icons
+                    const pumpIcon = document.getElementById('pump-icon');
+                    if (pumpState) {
+                        pumpIcon.classList.add('pump-active');
+                    } else {
+                        pumpIcon.classList.remove('pump-active');
+                    }
+                    
+                    const lightIcon = document.getElementById('light-icon');
+                    if (lightsState) {
+                        lightIcon.classList.add('light-active');
+                    } else {
+                        lightIcon.classList.remove('light-active');
+                    }
+                    
+                    // Also update calibration value display if it exists
+                    const calValue = document.getElementById('calibration-value');
+                    if (calValue) {
+                        calValue.textContent = data.liquid_value;
+                    }
+                    
+                    // Update WiFi and MQTT status icons in header
+                    if (data.wifi_status) {
+                        const wifiConnected = data.wifi_status === "connected";
+                        const wifiRssi = data.wifi_rssi || "--";
+                        
+                        // Update header icon
+                        const wifiIcon = document.getElementById('wifi-svg');
+                        if (wifiConnected) {
+                            wifiIcon.classList.add('wifi-connected');
+                            wifiIcon.classList.remove('wifi-disconnected');
+                        } else {
+                            wifiIcon.classList.add('wifi-disconnected');
+                            wifiIcon.classList.remove('wifi-connected');
+                        }
+                        
+                        // Update tooltip
+                        document.getElementById('wifi-tooltip').textContent = `WiFi Signal: ${wifiRssi} dBm`;
+                    }
+                    
+                    if (data.mqtt_status) {
+                        const mqttConnected = data.mqtt_status === "connected";
+                        
+                        // Update header icon
+                        const mqttIcon = document.getElementById('mqtt-svg');
+                        if (mqttConnected) {
+                            mqttIcon.classList.add('mqtt-connected');
+                            mqttIcon.classList.remove('mqtt-disconnected');
+                        } else {
+                            mqttIcon.classList.add('mqtt-disconnected');
+                            mqttIcon.classList.remove('mqtt-connected');
+                        }
+                    }
+                    
+                    // Update watering and light schedules
+                    if (data.watering_info) {
+                        try {
+                            // Watering schedule
+                            const pumpOn = pumpState;
+                            const wateringTimerSecs = parseInt(data.watering_info.seconds_until_next_change) || 0;
+                            const wateringStatus = pumpOn ? 'Running' : 'Next watering in';
+                            
+                            // Format time nicely as MM:SS or HH:MM:SS if over an hour
+                            let timerText = formatTimeRemaining(wateringTimerSecs);
+                            
+                            document.getElementById('watering-status').textContent = wateringStatus;
+                            document.getElementById('watering-timer').textContent = timerText;
+                        } catch (e) {
+                            console.error('Error updating watering schedule:', e);
+                        }
+                    }
+                    
+                    if (data.light_info) {
+                        try {
+                            // Light schedule
+                            const lightsOn = lightsState;
+                            const lightTimerSecs = parseInt(data.light_info.seconds_until_next_change) || 0;
+                            const lightStatus = lightsOn ? 'On until' : 'Off until';
+                            
+                            // Format time nicely
+                            let timerText = formatTimeRemaining(lightTimerSecs);
+                            
+                            document.getElementById('light-status').textContent = lightStatus;
+                            document.getElementById('light-timer').textContent = timerText;
+                        } catch (e) {
+                            console.error('Error updating light schedule:', e);
+                        }
+                    }
+                    
+                    // Update colors based on values
+                    updateStatusColor('liquid-level', data.liquid_level < LIQUID_ALERT_PERCENT);
+                    updateStatusColor('ph-value', data.ph_value < PH_MIN || data.ph_value > PH_MAX);
+                })
+                .catch(error => console.error('Error fetching sensor data:', error));
+            
+            setTimeout(updateSensorData, 1000);
+        }
+
+        function updateStatusColor(elementId, isWarning) {
+            const element = document.getElementById(elementId);
+            element.style.color = isWarning ? 'red' : 'green';
+        }
+
+        // Relay control function
+        function toggleRelay(relay) {
+            fetch(`/relay/${relay}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({action: 'toggle'})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    // The sensor data update will refresh the status automatically
+                } else {
+                    console.error('Error toggling relay');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        // Growth Profile Management
+        // Variables to store server data
+        let serverProfiles = null;
+        
+        // Initialize once when page loads
+        if (serverProfiles === null) {
+            serverProfiles = {};
+        }
+        let activeCycle = null;
+        let cycleInterval = null;
+
+        // Function to load profile details into the form
+        function loadProfileDetails() {
+            const profileId = document.getElementById('profile-select').value;
+            
+            if (!serverProfiles[profileId]) {
+                console.log("Profile not found in server data");
+                return;
+            }
+            
+            const profile = serverProfiles[profileId];
+            
+            // Set form values
+            document.getElementById('profile-name').value = profile.name;
+            
+            // Seedling stage
+            document.getElementById('seedling-duration').value = profile.seedling.duration;
+            document.getElementById('seedling-water-duration').value = profile.seedling.waterDuration;
+            document.getElementById('seedling-water-interval').value = profile.seedling.waterInterval;
+            document.getElementById('seedling-light-hours').value = profile.seedling.lightHours;
+            document.getElementById('seedling-light-start').value = profile.seedling.lightStartHour || 6;
+            document.getElementById('seedling-ph-min').value = profile.seedling.phMin;
+            document.getElementById('seedling-ph-max').value = profile.seedling.phMax;
+            
+            // Growing stage
+            document.getElementById('growing-duration').value = profile.growing.duration;
+            document.getElementById('growing-water-duration').value = profile.growing.waterDuration;
+            document.getElementById('growing-water-interval').value = profile.growing.waterInterval;
+            document.getElementById('growing-light-hours').value = profile.growing.lightHours;
+            document.getElementById('growing-light-start').value = profile.growing.lightStartHour || 6;
+            document.getElementById('growing-ph-min').value = profile.growing.phMin;
+            document.getElementById('growing-ph-max').value = profile.growing.phMax;
+            
+            // Harvesting stage
+            document.getElementById('harvesting-duration').value = profile.harvesting.duration;
+            document.getElementById('harvesting-water-duration').value = profile.harvesting.waterDuration;
+            document.getElementById('harvesting-water-interval').value = profile.harvesting.waterInterval;
+            document.getElementById('harvesting-light-hours').value = profile.harvesting.lightHours;
+            document.getElementById('harvesting-light-start').value = profile.harvesting.lightStartHour || 6;
+            document.getElementById('harvesting-ph-min').value = profile.harvesting.phMin;
+            document.getElementById('harvesting-ph-max').value = profile.harvesting.phMax;
+        }
+
+        // Create a new custom profile
+        function createNewProfile() {
+            const select = document.getElementById('profile-select');
+            
+            // Create a new option for the custom profile
+            const option = document.createElement('option');
+            const profileId = 'custom_' + Date.now();
+            option.value = profileId;
+            option.text = 'New Custom Profile';
+            select.add(option);
+            
+            // Set this as the selected option
+            select.value = profileId;
+            
+            // Initialize with default values
+            serverProfiles[profileId] = {
+                name: 'New Custom Profile',
+                seedling: {
+                    duration: 14,
+                    waterDuration: 5,
+                    waterInterval: 60,
+                    lightHours: 8,
+                    phMin: 5.5,
+                    phMax: 6.5
+                },
+                growing: {
+                    duration: 30,
+                    waterDuration: 5,
+                    waterInterval: 30,
+                    lightHours: 12,
+                    phMin: 5.8,
+                    phMax: 6.2
+                },
+                harvesting: {
+                    duration: 14,
+                    waterDuration: 5,
+                    waterInterval: 45,
+                    lightHours: 10,
+                    phMin: 6.0,
+                    phMax: 6.5
+                }
+            };
+            
+            // Load the profile details
+            loadProfileDetails();
+        }
+
+        // Save the current profile
+        function saveProfile() {
+            const profileId = document.getElementById('profile-select').value;
+            const profileName = document.getElementById('profile-name').value;
+            
+            // Create profile object
+            const profile = {
+                name: profileName,
+                seedling: {
+                    duration: parseInt(document.getElementById('seedling-duration').value),
+                    waterDuration: parseInt(document.getElementById('seedling-water-duration').value),
+                    waterInterval: parseInt(document.getElementById('seedling-water-interval').value),
+                    lightHours: parseInt(document.getElementById('seedling-light-hours').value),
+                    lightStartHour: parseInt(document.getElementById('seedling-light-start').value),
+                    phMin: parseFloat(document.getElementById('seedling-ph-min').value),
+                    phMax: parseFloat(document.getElementById('seedling-ph-max').value)
+                },
+                growing: {
+                    duration: parseInt(document.getElementById('growing-duration').value),
+                    waterDuration: parseInt(document.getElementById('growing-water-duration').value),
+                    waterInterval: parseInt(document.getElementById('growing-water-interval').value),
+                    lightHours: parseInt(document.getElementById('growing-light-hours').value),
+                    lightStartHour: parseInt(document.getElementById('growing-light-start').value),
+                    phMin: parseFloat(document.getElementById('growing-ph-min').value),
+                    phMax: parseFloat(document.getElementById('growing-ph-max').value)
+                },
+                harvesting: {
+                    duration: parseInt(document.getElementById('harvesting-duration').value),
+                    waterDuration: parseInt(document.getElementById('harvesting-water-duration').value),
+                    waterInterval: parseInt(document.getElementById('harvesting-water-interval').value),
+                    lightHours: parseInt(document.getElementById('harvesting-light-hours').value),
+                    lightStartHour: parseInt(document.getElementById('harvesting-light-start').value),
+                    phMin: parseFloat(document.getElementById('harvesting-ph-min').value),
+                    phMax: parseFloat(document.getElementById('harvesting-ph-max').value)
+                }
+            };
+            
+            // Update local reference and UI
+            serverProfiles[profileId] = profile;
+            
+            // Update select option text
+            const select = document.getElementById('profile-select');
+            select.options[select.selectedIndex].text = profileName;
+            
+            // Save to server
+            fetch('/growth-profile', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'save_profile',
+                    profileId: profileId,
+                    profile: profile
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    alert('Profile saved successfully!');
+                } else {
+                    alert('Error saving profile: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving profile: ' + error);
+            });
+        }
+
+        // Start a new growth cycle
+        function startGrowthCycle() {
+            const profileId = document.getElementById('profile-select').value;
+            const startDateInput = document.getElementById('cycle-start-date').value;
+            let startDate;
+            
+            if (startDateInput) {
+                startDate = new Date(startDateInput);
+            } else {
+                startDate = new Date();
+            }
+            
+            // Get the profile
+            if (!serverProfiles[profileId]) {
+                alert('Cannot start cycle: Profile not found');
+                return;
+            }
+            
+            const profile = serverProfiles[profileId];
+            
+            // Format the start time as a Unix timestamp for the ESP32
+            const startTimestamp = Math.floor(startDate.getTime() / 1000);
+            
+            // Save to server
+            fetch('/growth-profile', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'start_cycle',
+                    cycle: {
+                        profileId: profileId,
+                        startTime: startTimestamp
+                    }
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    alert('Growth cycle started!');
+                    // Reload growth profile data to get the active cycle
+                    initGrowthProfiles();
+                } else {
+                    alert('Error starting growth cycle: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error starting growth cycle: ' + error);
+            });
+        }
+
+        // Stop the current growth cycle
+        function stopGrowthCycle() {
+            if (!activeCycle) {
+                alert('No active growth cycle to stop.');
+                return;
+            }
+            
+            // Clear the active cycle
+            activeCycle = null;
+            
+            // Stop the tracking interval
+            if (cycleInterval) {
+                clearInterval(cycleInterval);
+                cycleInterval = null;
+            }
+            
+            // Reset UI
+            document.getElementById('current-profile-name').textContent = 'None';
+            document.getElementById('current-stage').textContent = 'None';
+            document.getElementById('start-date').textContent = 'None';
+            document.getElementById('days-remaining').textContent = '0';
+            
+            // Reset progress bars
+            document.getElementById('seedling-progress').style.width = '0%';
+            document.getElementById('growing-progress').style.width = '0%';
+            document.getElementById('harvesting-progress').style.width = '0%';
+            
+            // Save to server
+            fetch('/growth-profile', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'stop_cycle'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    alert('Growth cycle stopped!');
+                } else {
+                    alert('Error stopping growth cycle');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Growth cycle stopped locally. Server error occurred.');
+            });
+        }
+
+        // Start tracking cycle progress
+        function startCycleTracking() {
+            // Update the UI immediately
+            updateCycleProgress();
+            
+            // Set up interval to update progress
+            if (cycleInterval) {
+                clearInterval(cycleInterval);
+            }
+            
+            cycleInterval = setInterval(updateCycleProgress, 60000); // Update every minute
+        }
+
+        // Update cycle progress UI
+        function updateCycleProgress() {
+            if (!activeCycle) {
+                return;
+            }
+            
+            const now = new Date();
+            const startDate = new Date(activeCycle.startDate);
+            const daysPassed = Math.floor((now - startDate) / (1000 * 60 * 60 * 24));
+            
+            // Update info display
+            document.getElementById('current-profile-name').textContent = activeCycle.profileName;
+            document.getElementById('start-date').textContent = startDate.toLocaleDateString();
+            
+            // Calculate current stage and days remaining
+            let currentStage = '';
+            let daysRemaining = 0;
+            
+            if (daysPassed < activeCycle.seedlingDuration) {
+                currentStage = 'Seedling';
+                daysRemaining = activeCycle.seedlingDuration - daysPassed;
+            } else if (daysPassed < (activeCycle.seedlingDuration + activeCycle.growingDuration)) {
+                currentStage = 'Growing';
+                daysRemaining = (activeCycle.seedlingDuration + activeCycle.growingDuration) - daysPassed;
+            } else {
+                // When in harvesting stage, it continues indefinitely
+                currentStage = 'Harvesting';
+                daysRemaining = activeCycle.totalDuration - daysPassed;
+                if (daysRemaining < 0) {
+                    // If we've passed the nominal end time, just show 999 days remaining
+                    // to indicate it continues indefinitely
+                    daysRemaining = 999;
+                }
+            }
+            
+            document.getElementById('current-stage').textContent = currentStage;
+            document.getElementById('days-remaining').textContent = daysRemaining;
+            
+            // Update progress bars
+            const totalDuration = activeCycle.totalDuration;
+            const seedlingWidth = (activeCycle.seedlingDuration / totalDuration) * 100;
+            const growingWidth = (activeCycle.growingDuration / totalDuration) * 100;
+            const harvestingWidth = (activeCycle.harvestingDuration / totalDuration) * 100;
+            
+            // Set widths of each stage in the progress bar
+            document.getElementById('seedling-progress').style.width = seedlingWidth + '%';
+            document.getElementById('growing-progress').style.width = growingWidth + '%';
+            document.getElementById('harvesting-progress').style.width = harvestingWidth + '%';
+            
+            // Highlight current stage
+            if (currentStage === 'Seedling') {
+                document.getElementById('seedling-progress').style.opacity = '1';
+                document.getElementById('growing-progress').style.opacity = '0.4';
+                document.getElementById('harvesting-progress').style.opacity = '0.4';
+            } else if (currentStage === 'Growing') {
+                document.getElementById('seedling-progress').style.opacity = '0.4';
+                document.getElementById('growing-progress').style.opacity = '1';
+                document.getElementById('harvesting-progress').style.opacity = '0.4';
+            } else if (currentStage === 'Harvesting') {
+                document.getElementById('seedling-progress').style.opacity = '0.4';
+                document.getElementById('growing-progress').style.opacity = '0.4';
+                document.getElementById('harvesting-progress').style.opacity = '1';
+            }
+            
+            // If the growth cycle is complete, notify the user
+            //if (currentStage === 'Completed' && daysRemaining === 0) {
+            //    alert('Growth cycle complete!');
+            //    stopGrowthCycle();
+            //}
+        }
+
+        // Initialize profiles and load active cycle on page load
+        function initGrowthProfiles() {
+            // Clear existing custom profiles
+            const select = document.getElementById('profile-select');
+            // Keep only the default options (first 4)
+            while (select.options.length > 4) {
+                select.remove(4);
+            }
+            
+            // Load profile details for the selected profile
+            loadProfileDetails();
+            
+            // Set today's date as default for start date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('cycle-start-date').value = today;
+
+            // Load profiles and active cycle from server
+            fetch('/growth-profile')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.profiles) {
+                        // Clear existing profiles
+                        Object.keys(serverProfiles).forEach(key => delete serverProfiles[key]);
+                        
+                        // Convert server profiles to our format
+                        Object.keys(data.profiles).forEach(profileId => {
+                            const serverProfile = data.profiles[profileId];
+                            
+                            serverProfiles[profileId] = {
+                                name: serverProfile.name,
+                                seedling: {
+                                    duration: serverProfile.seedling.duration,
+                                    waterDuration: serverProfile.seedling.waterDuration,
+                                    waterInterval: serverProfile.seedling.waterInterval,
+                                    lightHours: serverProfile.seedling.lightHours,
+                                    lightStartHour: serverProfile.seedling.lightStartHour || 6,
+                                    phMin: serverProfile.seedling.phMin,
+                                    phMax: serverProfile.seedling.phMax
+                                },
+                                    growing: {
+                                    duration: serverProfile.growing.duration,
+                                    waterDuration: serverProfile.growing.waterDuration,
+                                    waterInterval: serverProfile.growing.waterInterval,
+                                    lightHours: serverProfile.growing.lightHours,
+                                    lightStartHour: serverProfile.growing.lightStartHour || 6,
+                                    phMin: serverProfile.growing.phMin,
+                                    phMax: serverProfile.growing.phMax
+                                },
+                                    harvesting: {
+                                    duration: serverProfile.harvesting.duration,
+                                    waterDuration: serverProfile.harvesting.waterDuration,
+                                    waterInterval: serverProfile.harvesting.waterInterval,
+                                    lightHours: serverProfile.harvesting.lightHours,
+                                    lightStartHour: serverProfile.harvesting.lightStartHour || 6,
+                                    phMin: serverProfile.harvesting.phMin,
+                                    phMax: serverProfile.harvesting.phMax
+                                }
+                            };
+                        });
+                        
+                        // Update the select options
+                        const select = document.getElementById('profile-select');
+                        
+                        // Clear all existing options
+                        while (select.options.length > 0) {
+                            select.remove(0);
+                        }
+                        
+                        // Add options for all profiles
+                        Object.keys(data.profiles).forEach(profileId => {
+                            const profile = data.profiles[profileId];
+                            serverProfiles[profileId] = profile;
+                            
+                            const option = document.createElement('option');
+                            option.value = profileId;
+                            option.text = profile.name;
+                            select.add(option);
+                        });
+                        
+                        // Select first profile if available
+                        if (select.options.length > 0) {
+                            select.selectedIndex = 0;
+                        }
+                        
+                        // Reload profile details
+                        loadProfileDetails();
+                    }
+                    
+                    // Handle active cycle if present
+                    if (data.activeCycle && data.activeCycle.active) {
+                        // Get the profile from our stored server profiles
+                        const profile = serverProfiles[data.activeCycle.profileId];
+                        
+                        if (profile) {
+                            activeCycle = {
+                                profileId: data.activeCycle.profileId,
+                                profileName: profile.name,
+                                startDate: new Date(data.activeCycle.startTime * 1000), // Convert from Unix timestamp
+                                totalDuration: profile.seedling.duration + 
+                                              profile.growing.duration + 
+                                              profile.harvesting.duration,
+                                seedlingDuration: profile.seedling.duration,
+                                growingDuration: profile.growing.duration,
+                                harvestingDuration: profile.harvesting.duration,
+                                settings: profile,
+                                currentStage: data.activeCycle.currentStage
+                            };
+                            
+                            // Start tracking
+                            startCycleTracking();
+                        }
+                    } else {
+                        // No active cycle on server
+                        activeCycle = null;
+                        
+                        // Reset UI
+                        document.getElementById('current-profile-name').textContent = 'None';
+                        document.getElementById('current-stage').textContent = 'None';
+                        document.getElementById('start-date').textContent = 'None';
+                        document.getElementById('days-remaining').textContent = '0';
+                        
+                        document.getElementById('seedling-progress').style.width = '0%';
+                        document.getElementById('growing-progress').style.width = '0%';
+                        document.getElementById('harvesting-progress').style.width = '0%';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading profiles from server:', error);
+                    // Continue with local data if server request fails
+                });
+        }
+
+        // Function to open the growth profile tab
+        function openGrowthTab() {
+            // Find and click the growth profile tab button
+            const tabButtons = document.getElementsByClassName('tablinks');
+            for (let i = 0; i < tabButtons.length; i++) {
+                if (tabButtons[i].getAttribute('onclick').includes('growth-profile')) {
+                    tabButtons[i].click();
+                    break;
+                }
+            }
+        }
+        
+        // Update cycle progress UI - both on growth tab and dashboard
+        function updateCycleProgress() {
+            if (!activeCycle) {
+                return;
+            }
+            
+            const now = new Date();
+            const startDate = new Date(activeCycle.startDate);
+            const daysPassed = Math.floor((now - startDate) / (1000 * 60 * 60 * 24));
+            
+            // Calculate current stage and days remaining
+            let currentStage = '';
+            let daysRemaining = 0;
+            
+            if (daysPassed < activeCycle.seedlingDuration) {
+                currentStage = 'Seedling';
+                daysRemaining = activeCycle.seedlingDuration - daysPassed;
+            } else if (daysPassed < (activeCycle.seedlingDuration + activeCycle.growingDuration)) {
+                currentStage = 'Growing';
+                daysRemaining = (activeCycle.seedlingDuration + activeCycle.growingDuration) - daysPassed;
+            } else {
+                // When in harvesting stage, it continues indefinitely
+                currentStage = 'Harvesting';
+                daysRemaining = activeCycle.totalDuration - daysPassed;
+                if (daysRemaining < 0) {
+                    // If we've passed the nominal end time, just show 999 days remaining
+                    // to indicate it continues indefinitely
+                    daysRemaining = 999;
+                }
+            }
+            
+            // Calculate progress bar widths
+            const totalDuration = activeCycle.totalDuration;
+            const seedlingWidth = (activeCycle.seedlingDuration / totalDuration) * 100;
+            const growingWidth = (activeCycle.growingDuration / totalDuration) * 100;
+            const harvestingWidth = (activeCycle.harvestingDuration / totalDuration) * 100;
+            
+            // Update both displays - growth tab and dashboard
+            updateCycleDisplay('current-profile-name', 'current-stage', 'start-date', 'days-remaining',
+                            'seedling-progress', 'growing-progress', 'harvesting-progress',
+                            activeCycle.profileName, currentStage, startDate, daysRemaining,
+                            seedlingWidth, growingWidth, harvestingWidth, currentStage);
+                            
+            updateCycleDisplay('dashboard-profile-name', 'dashboard-stage', 'dashboard-start-date', 'dashboard-days-remaining',
+                            'dashboard-seedling-progress', 'dashboard-growing-progress', 'dashboard-harvesting-progress',
+                            activeCycle.profileName, currentStage, startDate, daysRemaining,
+                            seedlingWidth, growingWidth, harvestingWidth, currentStage);
+        }
+        
+        // Helper function to update a specific cycle display
+        function updateCycleDisplay(nameId, stageId, dateId, daysId, seedlingId, growingId, harvestingId,
+                                  profileName, currentStage, startDate, daysRemaining,
+                                  seedlingWidth, growingWidth, harvestingWidth, highlightStage) {
+            // Update info text                          
+            document.getElementById(nameId).textContent = profileName;
+            document.getElementById(stageId).textContent = currentStage;
+            document.getElementById(dateId).textContent = startDate.toLocaleDateString();
+            document.getElementById(daysId).textContent = daysRemaining;
+            
+            // Set progress bar widths
+            document.getElementById(seedlingId).style.width = seedlingWidth + '%';
+            document.getElementById(growingId).style.width = growingWidth + '%';
+            document.getElementById(harvestingId).style.width = harvestingWidth + '%';
+            
+            // Highlight current stage
+            if (highlightStage === 'Seedling') {
+                document.getElementById(seedlingId).style.opacity = '1';
+                document.getElementById(growingId).style.opacity = '0.4';
+                document.getElementById(harvestingId).style.opacity = '0.4';
+            } else if (highlightStage === 'Growing') {
+                document.getElementById(seedlingId).style.opacity = '0.4';
+                document.getElementById(growingId).style.opacity = '1';
+                document.getElementById(harvestingId).style.opacity = '0.4';
+            } else if (highlightStage === 'Harvesting') {
+                document.getElementById(seedlingId).style.opacity = '0.4';
+                document.getElementById(growingId).style.opacity = '0.4';
+                document.getElementById(harvestingId).style.opacity = '1';
+            }
+        }
+        
+        // Helper function to format time remaining in MM:SS or HH:MM:SS format
+        function formatTimeRemaining(seconds) {
+            if (isNaN(seconds) || seconds < 0) {
+                return "--:--";
+            }
+            
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Start updating sensor data
+            updateSensorData();
+            
+            // Initialize growth profiles
+            initGrowthProfiles();
+            
+            // Add an event listener to the tab button to ensure profile data is loaded
+            document.querySelector('.tab button[onclick="openTab(event, \'growth-profile\')"]')
+                .addEventListener('click', function() {
+                    // Reload profile data when tab is opened
+                    setTimeout(loadProfileDetails, 100);
+                });
+        });
+    </script>
+</body>
+</html>
